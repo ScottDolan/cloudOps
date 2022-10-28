@@ -1,0 +1,189 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Transform": "AWS::Serverless-2016-10-31",
+    "Description": "Jobs 1 CloudFormation Template",
+    "Parameters": {
+      "CompanyName": {
+        "Description": "Company Name",
+        "Type": "String",
+        "Default": "generic"
+      },
+      "DepartmentName": {
+        "Description": "Department Name",
+        "Type": "String",
+        "Default": "cloudops"
+      },
+      "ProjectName": {
+        "Description": "Project Name",
+        "Type": "String",
+        "Default": "site-2-site"
+      },
+      "EnvironmentName": {
+        "Description": "Environment Name",
+        "Type": "String",
+        "Default": "prod",
+        "AllowedValues": [
+          "lab",
+          "dev",
+          "uat",
+          "prod"
+        ]
+      },
+      "OwnerEmail": {
+        "Default": "sdolan@jernie.com",
+        "Description": "Owner Email - The address to notify if there are any operational issues related to the Application",
+        "Type": "String",
+        "AllowedPattern": "([a-zA-Z0-9_\\-\\.]+)@((\\[[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.)|(([a-zA-Z0-9\\-]+\\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\\]?)",
+        "ConstraintDescription": "must be a valid email address."
+      },
+      "SiteIpAddress": {
+        "Description": "External Ip Address of Site VPN",
+        "Type": "String",
+        "Default": "173.63.73.41"
+      },
+      "DestinationRoute": {
+        "Description": "",
+        "Type": "String",
+        "Default": "10.1.0.0/24"
+      },
+      "Version": {
+        "Default": "1.0.0",
+        "Type": "String",
+        "Description": "Version"
+      }
+    },
+    "Mappings": {
+      "Environments": {
+        "lab": {
+          "Env": "lab"
+        },
+        "dev": {
+          "Env": "dev"
+        },
+        "uat": {
+          "Env": "uat"
+        },
+        "prod": {
+          "Env": "prod"
+        }
+      }
+    },
+    "Resources": {
+        "CustomerGateway": {
+            "Type": "AWS::EC2::CustomerGateway",
+            "Properties": {
+              "Type": "ipsec.1",
+              "BgpAsn": "65000",
+              "IpAddress": {
+                "Fn::Sub": "${SiteIpAddress}"
+              },
+              "Tags": [
+                {
+                  "Key": "Name",
+                  "Value": {
+                    "Fn::Sub": "site-2-site-customer-gateway"
+                  }
+                },
+                {
+                  "Key": "Company",
+                  "Value": {
+                    "Fn::Sub": "${CompanyName}"
+                  }
+                },
+                {
+                    "Key": "Department",
+                    "Value": {
+                      "Fn::Sub": "${DepartmentName}"
+                    }
+                },
+                {
+                  "Key": "Project",
+                  "Value": {
+                    "Fn::Sub": "${ProjectName}"
+                  }
+                },
+                {
+                  "Key": "Environment",
+                  "Value": {
+                    "Fn::Sub": "${EnvironmentName}"
+                  }
+                },
+                {
+                  "Key": "Owner",
+                  "Value": {
+                    "Fn::Sub": "${OwnerEmail}"
+                  }
+                }
+              ]
+            }
+        },
+        "Connection": {
+            "Type": "AWS::EC2::VPNConnection",
+            "Properties": {
+              "CustomerGatewayId": { "Ref": "CustomerGateway" },
+              "StaticRoutesOnly": true,
+              "Type": "ipsec.1",
+              "VpnGatewayId": { "Fn::ImportValue": { "Fn::Sub": "${DepartmentName}-${EnvironmentName}-VgwId" } },
+              "Tags": [
+                {
+                  "Key": "Name",
+                  "Value": {
+                    "Fn::Sub": "${ProjectName}-connection-${EnvironmentName}"
+                  }
+                },
+                {
+                  "Key": "Company",
+                  "Value": {
+                    "Fn::Sub": "${CompanyName}"
+                  }
+                },
+                {
+                    "Key": "Department",
+                    "Value": {
+                      "Fn::Sub": "${DepartmentName}"
+                    }
+                  },
+
+                {
+                  "Key": "Project",
+                  "Value": {
+                    "Fn::Sub": "${ProjectName}"
+                  }
+                },
+                {
+                  "Key": "Environment",
+                  "Value": {
+                    "Fn::Sub": "${EnvironmentName}"
+                  }
+                },
+                {
+                  "Key": "Owner",
+                  "Value": {
+                    "Fn::Sub": "${OwnerEmail}"
+                  }
+                }
+              ]
+            }
+        },
+        "StaticRoute": {
+            "Type": "AWS::EC2::VPNConnectionRoute",
+            "Properties": {
+                "DestinationCidrBlock": { "Fn::Sub" : "${DestinationRoute}" },
+                "VpnConnectionId": { "Ref": "Connection"  }
+            }
+        },
+        "DefaultPublicRoute": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": { "Fn::ImportValue": { "Fn::Sub": "${DepartmentName}-${EnvironmentName}-RtbId" } },
+                "DestinationCidrBlock": { "Fn::Sub" : "${DestinationRoute}" },
+                "GatewayId": { "Fn::ImportValue": { "Fn::Sub": "${DepartmentName}-${EnvironmentName}-VgwId" } }
+            }
+        }
+    },
+    "Outputs": {
+    }
+}
+      
+  
+  
